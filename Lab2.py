@@ -40,7 +40,14 @@ def calculate():
         edges_input = edges_entry.get()
         num_vertices = int(vertices_entry.get())
 
-        edges = [tuple(map(int, edge.strip().split(','))) for edge in edges_input.split(';') if edge.strip()]
+        # Преобразуем номера вершин в 0-based индексы
+        edges = []
+        for edge in edges_input.split(';'):
+            if edge.strip():
+                start, end = map(int, edge.strip().split(','))
+                if start > num_vertices or end > num_vertices or start < 1 or end < 1:
+                    raise ValueError(f"Номер вершины должен быть от 1 до {num_vertices}")
+                edges.append((start-1, end-1))  # преобразуем в 0-based
 
         matrix = convert_to_right_incidence_matrix(edges, num_vertices)
         graph = build_graph_from_edges(edges, num_vertices)
@@ -52,7 +59,7 @@ def calculate():
 
         result += "\n🔸 Новая нумерация вершин (по топологическому порядку):\n"
         for i in range(num_vertices):
-            result += f"Старая вершина {i} → Новая вершина {order.index(i)}\n"
+            result += f"Старая вершина {i+1} → Новая вершина {order.index(i)}\n"
 
         result_text.config(state=tk.NORMAL)
         result_text.delete(1.0, tk.END)
@@ -72,7 +79,7 @@ title_label = tk.Label(root, text="Преобразование графа в м
                        font=("Arial", 16, "bold"), bg="#f2f2f2")
 title_label.pack(pady=10)
 
-desc_label = tk.Label(root, text="Введите количество вершин и список дуг в формате '0,1;1,2;...' (без пробелов).",
+desc_label = tk.Label(root, text="Введите количество вершин и список дуг в формате '1,2;1,7;2,3;...' (вершины нумеруются с 1).",
                       font=("Arial", 10), bg="#f2f2f2")
 desc_label.pack(pady=(0, 15))
 
