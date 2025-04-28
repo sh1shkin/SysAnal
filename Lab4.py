@@ -4,90 +4,59 @@ from tkinter import ttk, messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-def bfs_shortest_paths(A, start):
-    n = A.shape[0]
-    distances = np.full(n, -1)
-    distances[start] = 0
-    queue = [start]
-
-    while queue:
-        current = queue.pop(0)
-        for neighbor in range(n):
-            if A[current, neighbor] == 1 and distances[neighbor] == -1:
-                distances[neighbor] = distances[current] + 1
-                queue.append(neighbor)
-    return distances
-
-def all_pairs_shortest_paths(A):
-    n = A.shape[0]
-    U = np.zeros((n, n), dtype=int)
-    for i in range(n):
-        U[i] = bfs_shortest_paths(A, i)
-    return U
-
-def adjacency_to_incidence(A):
-    n = A.shape[0]
-    edges = np.sum(A)
-    B = np.zeros((n, edges), dtype=int)
-    e = 0
-    for i in range(n):
-        for j in range(n):
-            if A[i, j] == 1:
-                B[i, e] = -1
-                B[j, e] = 1
-                e += 1
-    return B
-
 class GraphMatrixCalculator:
     def __init__(self, root):
         self.root = root
-        self.root.title("Калькулятор матриц графа (смежности)")
-        self.root.geometry("1000x800")
-        self.root.resizable(True, True)
+        self.root.title("Калькулятор матриц графа")
+        self.root.geometry("1100x800")
+        self.root.configure(bg='#f7f7f7')
+
         self.create_widgets()
 
     def create_widgets(self):
-        input_frame = ttk.LabelFrame(self.root, text="Параметры матрицы смежности")
-        input_frame.pack(fill="x", padx=10, pady=10)
+        style = ttk.Style()
+        style.configure("TButton", font=("Arial", 12), padding=6)
+        style.configure("TLabel", font=("Arial", 12))
+        style.configure("TEntry", font=("Arial", 12))
+        style.configure("TNotebook", tabposition='n')
 
-        ttk.Label(input_frame, text="Количество вершин:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        # Ввод параметров
+        input_frame = ttk.LabelFrame(self.root, text="Параметры графа", padding=10)
+        input_frame.pack(fill="x", padx=20, pady=10)
+
+        ttk.Label(input_frame, text="Количество вершин:").pack(side="left", padx=5)
         self.vertices_var = tk.StringVar(value="4")
-        ttk.Entry(input_frame, textvariable=self.vertices_var, width=10).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Entry(input_frame, textvariable=self.vertices_var, width=10).pack(side="left", padx=5)
+        ttk.Button(input_frame, text="Создать матрицу", command=self.create_matrix).pack(side="left", padx=10)
 
-        ttk.Button(input_frame, text="Создать матрицу", command=self.create_matrix).grid(row=0, column=2, padx=5, pady=5)
+        # Матрица смежности
+        self.matrix_frame = ttk.LabelFrame(self.root, text="Матрица смежности", padding=10)
+        self.matrix_frame.pack(fill="both", padx=20, pady=10, expand=True)
 
-        self.matrix_frame = ttk.LabelFrame(self.root, text="Матрица смежности", height=300)
-        self.matrix_frame.pack(fill="x", padx=10, pady=10)
-        self.matrix_frame.pack_propagate(False)
-
-        self.matrix_canvas = tk.Canvas(self.matrix_frame)
+        self.matrix_canvas = tk.Canvas(self.matrix_frame, bg='white')
         self.matrix_canvas.pack(side="left", fill="both", expand=True)
 
-        self.matrix_vscrollbar = ttk.Scrollbar(self.matrix_frame, orient="vertical", command=self.matrix_canvas.yview)
-        self.matrix_vscrollbar.pack(side="right", fill="y")
-        self.matrix_canvas.configure(yscrollcommand=self.matrix_vscrollbar.set)
-
-        self.matrix_hscrollbar = ttk.Scrollbar(self.matrix_frame, orient="horizontal", command=self.matrix_canvas.xview)
-        self.matrix_hscrollbar.pack(side="bottom", fill="x")
-        self.matrix_canvas.configure(xscrollcommand=self.matrix_hscrollbar.set)
+        self.vscrollbar = ttk.Scrollbar(self.matrix_frame, orient="vertical", command=self.matrix_canvas.yview)
+        self.vscrollbar.pack(side="right", fill="y")
+        self.matrix_canvas.configure(yscrollcommand=self.vscrollbar.set)
 
         self.matrix_content_frame = ttk.Frame(self.matrix_canvas)
-        self.matrix_canvas_window = self.matrix_canvas.create_window((0, 0), window=self.matrix_content_frame, anchor="nw")
-
+        self.matrix_window = self.matrix_canvas.create_window((0, 0), window=self.matrix_content_frame, anchor="nw")
         self.matrix_content_frame.bind("<Configure>", lambda e: self.matrix_canvas.configure(scrollregion=self.matrix_canvas.bbox("all")))
 
+        # Кнопки действий
         button_frame = ttk.Frame(self.root)
-        button_frame.pack(fill="x", padx=10, pady=5)
+        button_frame.pack(pady=10)
+        ttk.Button(button_frame, text="Рассчитать", command=self.calculate).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Очистить", command=self.clear).pack(side="left", padx=10)
+        ttk.Button(button_frame, text="Загрузить пример", command=self.load_example).pack(side="left", padx=10)
 
-        ttk.Button(button_frame, text="Рассчитать", command=self.calculate).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Очистить", command=self.clear).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Загрузить пример", command=self.load_example).pack(side="left", padx=5)
+        # Результаты
+        results_frame = ttk.LabelFrame(self.root, text="Результаты", padding=10)
+        results_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-        self.results_frame = ttk.LabelFrame(self.root, text="Результаты")
-        self.results_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-        self.notebook = ttk.Notebook(self.results_frame)
-        self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
+        self.notebook = ttk.Notebook(results_frame)
+        self.notebook.pack(fill="both", expand=True)
 
         self.incidence_tab = ttk.Frame(self.notebook)
         self.paths_tab = ttk.Frame(self.notebook)
@@ -95,156 +64,139 @@ class GraphMatrixCalculator:
 
         self.notebook.add(self.incidence_tab, text="Матрица инцидентности")
         self.notebook.add(self.paths_tab, text="Матрица кратчайших путей")
-        self.notebook.add(self.graph_tab, text="Визуализация графа")
+        self.notebook.add(self.graph_tab, text="Граф")
 
-        self.setup_scrollable_frame(self.incidence_tab)
-        self.setup_scrollable_frame(self.paths_tab)
+        self.setup_scrollable_tab(self.incidence_tab)
+        self.setup_scrollable_tab(self.paths_tab)
 
         self.matrix_entries = []
 
-    def setup_scrollable_frame(self, parent_frame):
-        canvas = tk.Canvas(parent_frame)
+    def setup_scrollable_tab(self, tab):
+        canvas = tk.Canvas(tab)
         canvas.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(tab, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-        vscrollbar = ttk.Scrollbar(parent_frame, orient="vertical", command=canvas.yview)
-        vscrollbar.pack(side="right", fill="y")
-        canvas.configure(yscrollcommand=vscrollbar.set)
+        content = ttk.Frame(canvas)
+        canvas.create_window((0, 0), window=content, anchor="nw")
+        content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
-        hscrollbar = ttk.Scrollbar(parent_frame, orient="horizontal", command=canvas.xview)
-        hscrollbar.pack(side="bottom", fill="x")
-        canvas.configure(xscrollcommand=hscrollbar.set)
-
-        content_frame = ttk.Frame(canvas)
-        canvas_window = canvas.create_window((0, 0), window=content_frame, anchor="nw")
-
-        content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        parent_frame.canvas = canvas
-        parent_frame.content_frame = content_frame
+        tab.canvas = canvas
+        tab.content = content
 
     def create_matrix(self):
         for widget in self.matrix_content_frame.winfo_children():
             widget.destroy()
-
         try:
             vertices = int(self.vertices_var.get())
-            if vertices <= 0:
-                messagebox.showerror("Ошибка", "Количество вершин должно быть положительным числом")
-                return
-
             self.matrix_entries = []
             for i in range(vertices):
-                row_entries = []
+                row = []
                 for j in range(vertices):
                     var = tk.StringVar(value="0")
-                    entry = ttk.Entry(self.matrix_content_frame, textvariable=var, width=5)
+                    entry = ttk.Entry(self.matrix_content_frame, textvariable=var, width=4)
                     entry.grid(row=i, column=j, padx=2, pady=2)
-                    row_entries.append(var)
-                self.matrix_entries.append(row_entries)
-
+                    row.append(var)
+                self.matrix_entries.append(row)
             self.matrix_content_frame.update_idletasks()
-            self.matrix_canvas.configure(scrollregion=self.matrix_canvas.bbox("all"))
-
         except ValueError:
-            messagebox.showerror("Ошибка", "Введите корректное число вершин")
+            messagebox.showerror("Ошибка", "Введите целое число вершин.")
 
     def get_adjacency_matrix(self):
         try:
             vertices = int(self.vertices_var.get())
             A = np.zeros((vertices, vertices), dtype=int)
-
             for i in range(vertices):
                 for j in range(vertices):
                     A[i, j] = int(self.matrix_entries[i][j].get())
-
             return A
-        except (ValueError, IndexError):
-            messagebox.showerror("Ошибка", "Проверьте значения матрицы")
+        except Exception:
+            messagebox.showerror("Ошибка", "Неверные данные в матрице!")
             return None
 
     def calculate(self):
         A = self.get_adjacency_matrix()
         if A is None:
             return
-
         try:
-            U = all_pairs_shortest_paths(A)
-            B = adjacency_to_incidence(A)
+            U = self.all_pairs_shortest_paths(A)
+            B = self.adjacency_to_incidence(A)
 
-            # Очищаем старое содержимое
-            for tab in [self.incidence_tab, self.paths_tab]:
-                for widget in tab.content_frame.winfo_children():
-                    widget.destroy()
-                tab.canvas.configure(scrollregion=tab.canvas.bbox("all"))
-
-            for widget in self.graph_tab.winfo_children():
-                widget.destroy()
-
-            # Вывод матрицы инцидентности с заголовками
-            ttk.Label(self.incidence_tab.content_frame, text="Матрица инцидентности:").grid(row=0, column=0, columnspan=B.shape[1]+1, pady=5)
-
-            for j in range(B.shape[1]):
-                ttk.Label(self.incidence_tab.content_frame, text=f"e{j}", width=5).grid(row=1, column=j+1)
-
-            for i in range(B.shape[0]):
-                ttk.Label(self.incidence_tab.content_frame, text=f"v{i}", width=5).grid(row=i+2, column=0)
-                for j in range(B.shape[1]):
-                    ttk.Label(self.incidence_tab.content_frame, text=f"{B[i, j]}", width=5, borderwidth=1, relief="solid").grid(row=i+2, column=j+1)
-
-            # Вывод матрицы кратчайших путей с заголовками
-            vertices = A.shape[0]
-
-            ttk.Label(self.paths_tab.content_frame, text="Матрица кратчайших путей:").grid(row=0, column=0, columnspan=vertices+1, pady=5)
-
-            for j in range(vertices):
-                ttk.Label(self.paths_tab.content_frame, text=f"{j}", width=5).grid(row=1, column=j+1)
-
-            for i in range(vertices):
-                ttk.Label(self.paths_tab.content_frame, text=f"{i}", width=5).grid(row=i+2, column=0)
-                for j in range(vertices):
-                    value = U[i, j]
-                    display_value = str(value) if value != -1 else "∞"
-                    ttk.Label(self.paths_tab.content_frame, text=display_value, width=5, borderwidth=1, relief="solid").grid(row=i+2, column=j+1)
-
-            self.visualize_graph(A)
-
+            self.display_matrix(B, self.incidence_tab.content, "e")
+            self.display_matrix(U, self.paths_tab.content, "v", replace_minus=True)
+            self.draw_graph(A)
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Произошла ошибка: {str(e)}")
+            messagebox.showerror("Ошибка", str(e))
 
-    def visualize_graph(self, A):
+    def display_matrix(self, M, frame, prefix, replace_minus=False):
+        for widget in frame.winfo_children():
+            widget.destroy()
+        rows, cols = M.shape
+        for j in range(cols):
+            ttk.Label(frame, text=f"{prefix}{j}").grid(row=0, column=j+1)
+        for i in range(rows):
+            ttk.Label(frame, text=f"{prefix}{i}").grid(row=i+1, column=0)
+            for j in range(cols):
+                val = M[i, j]
+                if replace_minus and val == -1:
+                    val = "∞"
+                ttk.Label(frame, text=f"{val}", borderwidth=1, relief="solid", width=5).grid(row=i+1, column=j+1)
+
+    def draw_graph(self, A):
+        for widget in self.graph_tab.winfo_children():
+            widget.destroy()
         fig, ax = plt.subplots(figsize=(6, 5))
         n = A.shape[0]
-        pos = {}
-        for i in range(n):
-            angle = 2 * np.pi * i / n
-            pos[i] = (np.cos(angle), np.sin(angle))
+        pos = {i: (np.cos(2*np.pi*i/n), np.sin(2*np.pi*i/n)) for i in range(n)}
 
         for i in range(n):
-            ax.plot(pos[i][0], pos[i][1], 'o', markersize=15, color='skyblue')
-            ax.text(pos[i][0], pos[i][1], str(i), horizontalalignment='center', verticalalignment='center')
+            ax.plot(pos[i][0], pos[i][1], 'o', markersize=10, color='skyblue')
+            ax.text(pos[i][0], pos[i][1], str(i), ha='center', va='center')
 
         for i in range(n):
             for j in range(n):
                 if A[i, j] == 1:
-                    dx = pos[j][0] - pos[i][0]
-                    dy = pos[j][1] - pos[i][1]
-                    length = np.sqrt(dx**2 + dy**2)
-                    node_radius = 0.15
-                    start_x = pos[i][0] + node_radius * dx / length
-                    start_y = pos[i][1] + node_radius * dy / length
-                    end_x = pos[j][0] - node_radius * dx / length
-                    end_y = pos[j][1] - node_radius * dy / length
+                    ax.arrow(pos[i][0], pos[i][1], pos[j][0]-pos[i][0], pos[j][1]-pos[i][1],
+                             head_width=0.05, head_length=0.1, fc='black', ec='black', length_includes_head=True)
 
-                    ax.arrow(start_x, start_y, end_x - start_x, end_y - start_y, 
-                             head_width=0.05, head_length=0.1, fc='black', ec='black')
-
-        ax.set_title("Визуализация графа")
-        ax.axis('equal')
         ax.axis('off')
-
         canvas = FigureCanvasTkAgg(fig, master=self.graph_tab)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas.get_tk_widget().pack(fill='both', expand=True)
+
+    def adjacency_to_incidence(self, A):
+        n = A.shape[0]
+        edges = np.sum(A)
+        B = np.zeros((n, edges), dtype=int)
+        e = 0
+        for i in range(n):
+            for j in range(n):
+                if A[i, j] == 1:
+                    B[i, e] = -1
+                    B[j, e] = 1
+                    e += 1
+        return B
+
+    def all_pairs_shortest_paths(self, A):
+        n = A.shape[0]
+        U = np.full((n, n), -1)
+        for i in range(n):
+            U[i] = self.bfs_shortest_paths(A, i)
+        return U
+
+    def bfs_shortest_paths(self, A, start):
+        n = A.shape[0]
+        distances = np.full(n, -1)
+        distances[start] = 0
+        queue = [start]
+        while queue:
+            current = queue.pop(0)
+            for neighbor in range(n):
+                if A[current, neighbor] == 1 and distances[neighbor] == -1:
+                    distances[neighbor] = distances[current] + 1
+                    queue.append(neighbor)
+        return distances
 
     def clear(self):
         self.vertices_var.set("4")
@@ -253,12 +205,7 @@ class GraphMatrixCalculator:
     def load_example(self):
         self.vertices_var.set("4")
         self.create_matrix()
-        example = [
-            [0, 1, 0, 0],
-            [0, 0, 1, 0],
-            [0, 0, 0, 1],
-            [1, 0, 0, 0]
-        ]
+        example = [[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1], [1, 0, 0, 0]]
         for i in range(4):
             for j in range(4):
                 self.matrix_entries[i][j].set(str(example[i][j]))
